@@ -2,3 +2,7 @@
 /docs/
 __pycache__/
 *.pyc
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
