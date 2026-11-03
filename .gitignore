@@ -1,2 +1,4 @@
 /planejamento_gerenciador_scripts.md
 /docs/
+__pycache__/
+*.pyc
