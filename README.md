@@ -34,7 +34,7 @@ você pode editar suas propriedades.
 
 O Windows gerencia o gatilho; nenhum processo do aplicativo precisa ficar
 aberto esperando teclas. Fechar a janela pelo **X** encerra a aplicação.
-A interface desta etapa serve apenas para validar a inicialização.
+A janela atual oferece gerenciamento de scripts e pastas em tema escuro.
 
 ### Validação no Windows 11 Pro
 
@@ -78,14 +78,14 @@ banco em `main.py` já garante a existência de Geral. A listagem de pastas e o 
 na pasta padrão também garantem sua existência. O adaptador deve implementar
 essa operação de forma idempotente, sem ID fixo nem identificação só pelo nome.
 
-A interface deverá exibir o aviso de exclusão e passar `confirmado=True` somente
-após confirmação explícita. O adaptador deverá excluir pasta e scripts atomicamente.
+A interface exibe o aviso de exclusão e passa `confirmado=True` somente
+após confirmação explícita. O adaptador exclui pasta e scripts atomicamente.
 As operações de gerenciamento não solicitam encerramento. Após inserção, a
 interface deverá encerrar somente quando `deve_encerrar` indicar sucesso.
 
 O núcleo conta com adaptadores SQLite e testes de transações reais. A interface
-atual continua sendo a janela de validação do gatilho; sua conexão com os casos
-de uso e a integração Windows serão implementadas posteriormente. O adaptador de inserção deverá guardar o
+está conectada aos casos de uso de gerenciamento. A integração de inserção no
+Windows será implementada posteriormente. O adaptador de inserção deverá guardar o
 destino anterior à abertura da janela e confirmar a inserção; enviar teclas
 não comprova sucesso.
 
@@ -150,3 +150,58 @@ migrações para futuras mudanças na estrutura do banco.
 
 Referências: [sqlite3 no Python](https://docs.python.org/3.13/library/sqlite3.html)
 e [chaves estrangeiras no SQLite](https://www.sqlite.org/foreignkeys.html).
+
+## Interface escura
+
+A interface usa Tkinter/ttk, com janela compacta de 400 × 540 unidades Tk
+(a altura inicial se adapta à tela), fonte Segoe UI, cartões arredondados,
+fundo escuro e destaque azul-claro. Ela é inspirada no histórico do Windows;
+não depende de bibliotecas visuais adicionais. No Windows 11, solicita a
+[barra de título escura pelo DWM](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes).
+
+- A janela inicia com uma única listagem de **pastas**, sem cabeçalho de
+  apresentação, subtítulo, indicação de Alt+C ou abas.
+- Clique em qualquer parte do cartão da pasta, exceto no botão **···**, para
+  abrir seus scripts. Use **← Voltar** para retornar à listagem de pastas.
+- Cartões de pasta mostram somente o nome e os três pontos. Seu menu oferece
+  **Abrir pasta**, **Editar pasta** e **Excluir pasta**. Na pasta Geral, edição
+  e exclusão ficam desabilitadas.
+- Cartões de script mostram somente título, prévia do conteúdo e os três
+  pontos. Seu menu oferece **Ver script**, **Editar script** e **Excluir script**.
+  Clicar no cartão também abre o texto completo.
+- Os cartões de script têm altura padronizada: uma linha de título e três de
+  prévia. A prévia resume espaços e quebras de linha e mostra até 150 caracteres,
+  com reticências quando houver corte. **Ver script** exibe o conteúdo original
+  completo, preservando os espaços e as quebras de linha.
+- O botão de criação acompanha a navegação: **+ Nova pasta** na lista inicial
+  e **+ Novo script** dentro de uma pasta.
+- **Voltar**, **+ Nova pasta** e **+ Novo script** têm cantos arredondados.
+  Os cartões têm margens internas de 8 unidades de cada lado da listagem,
+  sem alterar o tamanho da janela ou a posição da barra de rolagem.
+- Os formulários e confirmações também têm tema escuro. Excluir pasta exige
+  confirmação com aviso de que seus scripts serão removidos.
+- As alterações são persistidas no SQLite e as listas são atualizadas.
+  Operações de gerenciamento mantêm a aplicação aberta.
+- **Ctrl+N** abre o cadastro de script; **Ctrl+Shift+N**, o de pasta.
+  **Ctrl+Enter** salva o script no formulário. **Esc** fecha os diálogos.
+
+A ação **Inserir texto** permanece desabilitada enquanto não houver adaptador
+Windows. A interface já aceita o caso de uso `InserirScript` e só encerra após
+um resultado de sucesso; isso ainda requer validação com a integração real.
+Pesquisa e movimentação de scripts entre pastas continuam fora desta etapa.
+
+Para abrir uma prévia com dados fictícios em banco temporário, sem acessar
+os dados pessoais:
+
+```powershell
+py -B scripts/preview_interface.py
+```
+
+Os testes em `tests/test_interface.py` exercitam formulários Tk e casos de uso
+com SQLite temporário: criação, edição, cancelamento, abertura por clique no
+cartão, retorno às pastas, menus de três pontos, filtragem por pasta,
+confirmação de exclusão, cascata, proteção de Geral e exibição de erros.
+A suíte completa passou em **60 testes**, incluindo conteúdo longo, muitas quebras
+de linha, altura uniforme dos cartões e visualização integral do texto original.
+Os testes automatizados não substituem
+a conferência visual e a validação final de desempenho no computador-alvo.
