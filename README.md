@@ -54,3 +54,50 @@ O método de medição e as condições de inicialização a frio e carga não f
 informados. A validação nessas condições e no executável empacotado permanece
 pendente. Captura de foco e inserção de scripts serão implementadas em etapas
 posteriores.
+
+## Domínio e casos de uso
+
+`src/domain/` contém as entidades imutáveis `Pasta` e `Script`. A pasta de
+sistema é protegida contra renomeação e exclusão. A edição de um script
+preserva sua pasta. Unicidade, validação de textos vazios e limites de tamanho
+continuam pendentes de definição; o conteúdo é preservado literalmente.
+
+`src/application/` contém:
+
+- `pasta.py`: `CasosDeUsoPastas`, com CRUD, inicialização de Geral e exclusão
+  confirmada. `solicitar_exclusao()` fornece o aviso sobre a remoção dos scripts.
+- `scripts.py`: `CasosDeUsoScripts`, com CRUD e consulta por pasta. O cadastro
+  sem escolha de pasta utiliza Geral; uma pasta escolhida deve existir.
+- `inserir_script.py`: `InserirScript`, com resultados de sucesso, falha ou
+  ausência de destino válido. Apenas sucesso tem `deve_encerrar=True`.
+- `contratos.py`: contratos de repositórios e inserção definidos com `Protocol`.
+- `erros.py`: erros de entidade inexistente e confirmação ausente.
+
+Os casos de uso recebem seus adaptadores pelo construtor. A composição futura
+deve chamar `garantir_geral()` na inicialização. A listagem de pastas e o cadastro
+na pasta padrão também garantem sua existência. O adaptador deve implementar
+essa operação de forma idempotente, sem ID fixo nem identificação só pelo nome.
+
+A interface deverá exibir o aviso de exclusão e passar `confirmado=True` somente
+após confirmação explícita. O adaptador deverá excluir pasta e scripts atomicamente.
+As operações de gerenciamento não solicitam encerramento. Após inserção, a
+interface deverá encerrar somente quando `deve_encerrar` indicar sucesso.
+
+Esta etapa entrega o núcleo e seus contratos. A interface atual continua sendo
+a janela de validação do gatilho. SQLite, transações reais e integração Windows
+serão implementados posteriormente. O adaptador de inserção deverá guardar o
+destino anterior à abertura da janela e confirmar a inserção; enviar teclas
+não comprova sucesso.
+
+### Testes do núcleo
+
+Na raiz do projeto, execute no PowerShell:
+
+```powershell
+$env:PYTHONPATH = (Join-Path (Get-Location) 'src')
+py -B -m unittest discover -s tests -v
+```
+
+Os testes usam repositórios em memória e simulação da integração de texto.
+Verificam as regras do núcleo; persistência SQLite, atomicidade real e inserção
+em aplicativos externos ainda precisam de testes com os respectivos adaptadores.
