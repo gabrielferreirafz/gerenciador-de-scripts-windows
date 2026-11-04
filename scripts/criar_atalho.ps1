@@ -1,8 +1,10 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)]
     [string]$PythonwPath,
 
-    [switch]$Iniciar
+    [switch]$Iniciar,
+
+    [switch]$IniciarComWindows
 )
 
 $ErrorActionPreference = 'Stop'
@@ -24,6 +26,11 @@ if (-not $programs -or -not (Test-Path -LiteralPath $programs -PathType Containe
     throw 'Não foi possível localizar o menu Iniciar do usuário.'
 }
 $shortcutPath = Join-Path $programs 'Gerenciador de Scripts.lnk'
+$startup = [Environment]::GetFolderPath('Startup')
+if (-not $startup -or -not (Test-Path -LiteralPath $startup -PathType Container)) {
+    throw 'Não foi possível localizar a pasta Inicializar do usuário.'
+}
+$startupPath = Join-Path $startup 'Gerenciador de Scripts.lnk'
 if (Test-Path -LiteralPath $shortcutPath) {
     $backupDir = Join-Path $env:LOCALAPPDATA 'GerenciadorScripts\config'
     New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
@@ -41,6 +48,13 @@ $shortcut.Description = 'Iniciar o receptor de Ctrl+Alt+Z do Gerenciador de Scri
 $shortcut.Hotkey = ''
 $shortcut.WindowStyle = 1
 $shortcut.Save()
+
+# No logon, o Windows executa diretamente o receptor via pythonw, sem interface.
+# Se já foi ativado antes, atualiza também os caminhos da inicialização.
+if ($IniciarComWindows -or (Test-Path -LiteralPath $startupPath)) {
+    Copy-Item -LiteralPath $shortcutPath -Destination $startupPath -Force
+    Write-Output "Inicialização ao entrar no Windows configurada: $startupPath"
+}
 
 if (-not ('GerenciadorAtalho.Shell' -as [type])) {
     Add-Type -TypeDefinition @'

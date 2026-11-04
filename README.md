@@ -22,7 +22,7 @@ biblioteca padrão do Python, Win32 e UI Automation via `ctypes`.
 Requer Python com Tkinter instalado. Na raiz do projeto, execute no PowerShell:
 
 ```powershell
-.\scripts\criar_atalho.ps1 -PythonwPath 'C:\caminho\Python\pythonw.exe' -Iniciar
+.\scripts\criar_atalho.ps1 -PythonwPath 'C:\caminho\Python\pythonw.exe' -IniciarComWindows -Iniciar
 ```
 
 O script cria ou atualiza `Gerenciador de Scripts.lnk` no menu Iniciar do usuário,
@@ -30,10 +30,15 @@ fazendo uma cópia do atalho anterior em `%LOCALAPPDATA%\GerenciadorScripts\conf
 O `.lnk` inicia apenas o receptor e **não recebe uma combinação de teclas**:
 isso evita a mudança de foco causada pelo antigo atalho do Explorer.
 O parâmetro `-Iniciar` inicia o receptor imediatamente, sem console.
+O parâmetro `-IniciarComWindows` também cria um atalho na pasta **Inicializar**
+da conta atual. A partir do próximo logon, o Windows inicia somente o receptor,
+sem console nem interface. Não é necessário executar o PowerShell a cada sessão
+nem usar privilégios de administrador.
 
 Depois da configuração:
 
-1. Abra o gerenciador pelo menu Iniciar para iniciar o receptor, caso não esteja ativo.
+1. O receptor inicia ao entrar na conta do Windows. Se você o encerrou manualmente,
+   abra o gerenciador pelo menu Iniciar para iniciá-lo novamente.
 2. Clique no campo de mensagem do Blip ou WhatsApp Web no Chrome.
 3. Pressione **Ctrl+Alt+Z**, entre na pasta e clique no cartão do script.
 4. O programa restaura o destino e cola o texto. **Não pressiona Enter nem envia mensagens.**
@@ -51,11 +56,21 @@ Para encerrar tudo, clique com o botão direito no ícone da bandeja e escolha
 py -B src/main.py --encerrar
 ```
 
-Não há inicialização automática junto com o Windows nesta etapa. Inicie o receptor
-novamente a cada sessão. Executá-lo outra vez não duplica a instância.
+Executar o receptor outra vez não duplica a instância. Encerrá-lo pelo ícone da
+bandeja encerra a sessão atual; no próximo logon, ele inicia novamente.
 Ao mover o projeto ou o Python, encerre o receptor e execute novamente o script de
-configuração na nova localização. O script só é usado para configurar/atualizar o
-atalho; não participa de cada abertura da interface.
+configuração na nova localização. Ele atualiza o atalho do menu Iniciar e também
+o da inicialização, caso já esteja ativada. O script só configura os atalhos;
+não é executado no logon nem em cada abertura da interface.
+
+Para **desativar a inicialização automática**, pressione `Win+R`, abra
+`shell:startup` e exclua somente `Gerenciador de Scripts.lnk`. Isso preserva o
+atalho do menu Iniciar e os dados, e não encerra o receptor já em execução.
+Para reativar, execute a configuração novamente com `-IniciarComWindows`.
+
+Para validar, saia da conta e entre novamente (ou reinicie o computador): o ícone
+deve aparecer na bandeja, sem abrir a interface. Clique no campo de mensagem e
+pressione **Ctrl+Alt+Z**. A confirmação desse logon real deve ser feita manualmente.
 
 ## Pastas e subpastas
 
@@ -110,7 +125,7 @@ novamente, evitando duplicar o texto.
 - `src/infraestructure/`: SQLite, repositórios, receptor do atalho, captura UIA e colagem Win32.
 - `src/presentation/`: interface Tkinter/ttk, tema escuro e formulários.
 - `src/main.py`: composição do receptor e da interface sob demanda.
-- `scripts/criar_atalho.ps1`: configuração do atalho do menu Iniciar.
+- `scripts/criar_atalho.ps1`: configuração dos atalhos do menu Iniciar e da inicialização.
 - `tests/`: testes de regressão do núcleo, persistência, interface e integração Windows.
 
 O projeto não inclui páginas de captura, monitores de foco, logs de investigação
