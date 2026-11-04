@@ -2,6 +2,7 @@
 
 from application.contratos import RepositorioPastas
 from application.erros import ConfirmacaoNecessaria, EntidadeNaoEncontrada
+from domain.erros import ErroDominio
 from domain.pasta import Pasta
 
 
@@ -13,8 +14,12 @@ class CasosDeUsoPastas:
         """Inicialização idempotente da pasta padrão, sem ID fixo."""
         return self._repositorio.garantir_geral()
 
-    def criar(self, nome: str) -> Pasta:
-        return self._repositorio.criar(nome)
+    def criar(self, nome: str, pai_id: int | None = None) -> Pasta:
+        if pai_id is not None:
+            if type(pai_id) is not int:
+                raise ErroDominio("A pasta pai deve ser identificada por um ID inteiro.")
+            self.obter(pai_id)
+        return self._repositorio.criar(nome, pai_id)
 
     def obter(self, pasta_id: int) -> Pasta:
         pasta = self._repositorio.obter(pasta_id)
@@ -25,6 +30,12 @@ class CasosDeUsoPastas:
     def listar(self) -> list[Pasta]:
         self.garantir_geral()
         return self._repositorio.listar()
+
+    def listar_filhas(self, pai_id: int | None = None) -> list[Pasta]:
+        """Lista somente o nível solicitado; None representa a raiz."""
+        if pai_id is not None:
+            self.obter(pai_id)
+        return [pasta for pasta in self.listar() if pasta.pai_id == pai_id]
 
     def renomear(self, pasta_id: int, nome: str) -> Pasta:
         pasta = self.obter(pasta_id).renomear(nome)
@@ -37,7 +48,8 @@ class CasosDeUsoPastas:
         pasta.verificar_exclusao()
         return (
             f'Excluir a pasta "{pasta.nome}"? '
-            "Todos os scripts associados também serão excluídos."
+            "Todos os scripts associados também serão excluídos, "
+            "incluindo todas as subpastas e os scripts dentro delas."
         )
 
     def excluir(self, pasta_id: int, *, confirmado: bool = False) -> None:

@@ -29,8 +29,8 @@ class PastasEmMemoria:
         self.dados[pasta.id] = pasta
         return pasta
 
-    def criar(self, nome: str) -> Pasta:
-        pasta = Pasta(self.proximo_id, nome, False)
+    def criar(self, nome: str, pai_id: int | None = None) -> Pasta:
+        pasta = Pasta(self.proximo_id, nome, False, pai_id)
         self.proximo_id += 1
         self.dados[pasta.id] = pasta
         return pasta
@@ -45,10 +45,13 @@ class PastasEmMemoria:
         self.dados[pasta.id] = pasta
 
     def excluir_com_scripts(self, pasta_id: int) -> None:
-        del self.dados[pasta_id]
+        removidas = {pasta_id}
+        while novas := {p.id for p in self.dados.values() if p.pai_id in removidas} - removidas:
+            removidas.update(novas)
+        self.dados = {chave: pasta for chave, pasta in self.dados.items() if chave not in removidas}
         self.scripts.dados = {
             chave: script for chave, script in self.scripts.dados.items()
-            if script.pasta_id != pasta_id
+            if script.pasta_id not in removidas
         }
 
 

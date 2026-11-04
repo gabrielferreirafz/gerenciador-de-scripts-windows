@@ -14,7 +14,7 @@ class RepositorioPastas(Protocol):
         """
         ...
 
-    def criar(self, nome: str) -> Pasta:
+    def criar(self, nome: str, pai_id: int | None = None) -> Pasta:
         """Persiste uma pasta do usuário (sistema=False) e retorna seu ID."""
         ...
 
@@ -25,7 +25,7 @@ class RepositorioPastas(Protocol):
     def atualizar(self, pasta: Pasta) -> None: ...
 
     def excluir_com_scripts(self, pasta_id: int) -> None:
-        """Exclui pasta e scripts atomicamente, revertendo tudo em caso de falha.
+        """Exclui pasta, descendentes e scripts atomicamente.
 
         O adaptador deve preservar integridade referencial e proteção da Geral.
         """

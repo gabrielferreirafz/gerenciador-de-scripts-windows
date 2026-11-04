@@ -52,6 +52,8 @@ class Interface:
         self.botao_novo = ttk.Button(acoes, text="+ Nova pasta", style="ArredondadoDestaque.TButton",
                                      command=self._novo)
         self.botao_novo.pack(side="right")
+        self.botao_subpasta = ttk.Button(acoes, text="+ Subpasta",
+                                        style="Arredondado.TButton", command=self.editar_pasta)
         self.lista = ListaRolavel(self.janela)
         self.lista.pack(fill="both", expand=True, padx=(20, 12), pady=(0, 12))
 
@@ -78,8 +80,11 @@ class Interface:
         self._executar(abrir)
 
     def voltar(self):
-        self.pasta_id = None
-        self._executar(self.atualizar)
+        def subir():
+            if self.pasta_id is not None:
+                self.pasta_id = self.pastas.obter(self.pasta_id).pai_id
+            self.atualizar()
+        self._executar(subir)
 
     def atualizar(self):
         self._pastas = self.pastas.listar()
@@ -89,19 +94,30 @@ class Interface:
         self.lista.limpar()
         if self.pasta_id is not None:
             self.botao_voltar.pack(side="left")
+            self.botao_subpasta.pack(side="right", padx=(0, 6))
             pasta = next(p for p in self._pastas if p.id == self.pasta_id)
-            self.pasta_atual.configure(text=pasta.nome or "Sem nome")
+            caminho = [pasta.nome or "Sem nome"]
+            por_id = {p.id: p for p in self._pastas}
+            while pasta.pai_id is not None:
+                pasta = por_id[pasta.pai_id]
+                caminho.append(pasta.nome or "Sem nome")
+            self.pasta_atual.configure(text=" / ".join(reversed(caminho)))
             self.pasta_atual.pack(fill="x", padx=20, pady=(0, 12), before=self.lista)
+            filhas = [p for p in self._pastas if p.pai_id == self.pasta_id]
+            for filha in filhas:
+                self._cartao_pasta(filha)
             itens = self.scripts.listar(self.pasta_id)
             for script in itens:
                 self._cartao_script(script)
-            if not itens:
+            if not itens and not filhas:
                 self._vazio()
         else:
             self.botao_voltar.pack_forget()
+            self.botao_subpasta.pack_forget()
             self.pasta_atual.pack_forget()
             for pasta in self._pastas:
-                self._cartao_pasta(pasta)
+                if pasta.pai_id is None:
+                    self._cartao_pasta(pasta)
 
     def _novo(self):
         self.editar_pasta() if self.pasta_id is None else self.editar_script()
@@ -208,11 +224,12 @@ class Interface:
                     if pasta:
                         self.pastas.renomear(pasta.id, nome)
                     else:
-                        self.pastas.criar(nome)
+                        self.pastas.criar(nome, self.pasta_id)
                     self.atualizar()
                 return self._executar(gravar, editor)
 
-            editor = EditorPasta(self.janela, salvar, pasta)
+            editor = EditorPasta(self.janela, salvar, pasta,
+                                 subpasta=(pasta.pai_id if pasta else self.pasta_id) is not None)
         self._executar(abrir)
 
     def editar_script(self, script_id: int | None = None):
@@ -241,7 +258,10 @@ class Interface:
         def excluir():
             aviso = self.pastas.solicitar_exclusao(pasta_id)
             if confirmar(self.janela, "Excluir pasta?", aviso):
+                pai_id = self.pastas.obter(pasta_id).pai_id
                 self.pastas.excluir(pasta_id, confirmado=True)
+                if self.pasta_id == pasta_id:
+                    self.pasta_id = pai_id
                 self.atualizar()
         self._executar(excluir)
 

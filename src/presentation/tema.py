@@ -127,7 +127,16 @@ def rotulos_pastas(pastas) -> list[str]:
         sufixo = " · padrão" if pasta.sistema else (
             f" ({ocorrencias[nome]})" if totais[nome] > 1 else "")
         rotulos.append(nome + sufixo)
-    return rotulos
+    por_id = {p.id: p for p in pastas}
+    por_id_rotulo = {p.id: rotulo for p, rotulo in zip(pastas, rotulos)}
+    caminhos = []
+    for pasta in pastas:
+        partes = [por_id_rotulo[pasta.id]]
+        while pasta.pai_id is not None:
+            pasta = por_id[pasta.pai_id]
+            partes.append(por_id_rotulo[pasta.id])
+        caminhos.append(" / ".join(reversed(partes)))
+    return caminhos
 
 
 class Cartao(tk.Canvas):

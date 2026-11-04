@@ -57,6 +57,33 @@ Ao mover o projeto ou o Python, encerre o receptor e execute novamente o script 
 configuração na nova localização. O script só é usado para configurar/atualizar o
 atalho; não participa de cada abertura da interface.
 
+## Pastas e subpastas
+
+Na lista inicial, **+ Nova pasta** cria uma pasta na raiz. Dentro de uma pasta,
+**+ Subpasta** cria uma pasta filha e **+ Novo script** cadastra um script, com a
+pasta atual selecionada como destino. Também é possível criar subpastas dentro
+de outras subpastas. Cada nível pode conter nenhum ou vários scripts e subpastas.
+
+Clique no cartão para entrar. A listagem mostra somente as subpastas e os scripts
+diretos daquele nível, com as subpastas primeiro. O caminho aparece acima da lista;
+**Voltar** sobe um nível, até retornar à raiz. Os mesmos menus de três pontos
+permitem abrir, renomear e excluir pastas ou subpastas.
+
+No cadastro de scripts, a seleção de pasta exibe o caminho completo, como
+`Atendimento / Financeiro`. O script pertence a um único destino, que pode ser
+uma pasta ou subpasta. Editar título/conteúdo continua preservando esse destino.
+Nomes repetidos são diferenciados na seleção, sem expor IDs do banco.
+
+Excluir uma pasta ou subpasta exige confirmação e remove seus descendentes e
+todos os respectivos scripts na mesma transação. Geral continua protegida na
+raiz e pode conter subpastas do usuário; essas subpastas podem ser renomeadas
+ou excluídas normalmente.
+
+O banco existente é atualizado automaticamente ao abrir a interface. A coluna
+opcional `pastas.pai_id` referencia outra pasta com `ON DELETE CASCADE`;
+as pastas anteriores permanecem na raiz, preservando IDs, nomes e scripts.
+As restrições do banco impedem pais inexistentes e ciclos na hierarquia.
+
 ## Captura e inserção
 
 Ao receber Ctrl+Alt+Z, o receptor captura a janela e a identidade do elemento com

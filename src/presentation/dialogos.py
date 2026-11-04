@@ -82,8 +82,9 @@ def confirmar(pai: tk.Misc, titulo: str, mensagem: str) -> bool:
 
 
 class EditorPasta(Dialogo):
-    def __init__(self, pai, ao_salvar, pasta: Pasta | None = None):
-        super().__init__(pai, "Renomear pasta" if pasta else "Nova pasta")
+    def __init__(self, pai, ao_salvar, pasta: Pasta | None = None, *, subpasta=False):
+        tipo = "subpasta" if subpasta else "pasta"
+        super().__init__(pai, f"Renomear {tipo}" if pasta else f"Nova {tipo}")
         texto(self.corpo, "Nome da pasta", cor=SECUNDARIO).pack(anchor="w", pady=(0, 6))
         self.nome = ttk.Entry(self.corpo, width=36)
         self.nome.pack(fill="x")
@@ -94,7 +95,7 @@ class EditorPasta(Dialogo):
                 self.destroy()
 
         linha = self.botoes()
-        ttk.Button(linha, text="Salvar" if pasta else "Criar pasta", command=salvar,
+        ttk.Button(linha, text="Salvar" if pasta else f"Criar {tipo}", command=salvar,
                    style="Destaque.TButton").pack(side="right")
         ttk.Button(linha, text="Cancelar", command=self.destroy).pack(side="right", padx=(0, 8))
         self.bind("<Return>", lambda _: salvar())

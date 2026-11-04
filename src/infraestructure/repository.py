@@ -10,7 +10,7 @@ from infraestructure.database import BancoDados, garantir_geral
 
 
 def _pasta(linha: sqlite3.Row) -> Pasta:
-    return Pasta(linha["id"], linha["nome"], bool(linha["sistema"]))
+    return Pasta(linha["id"], linha["nome"], bool(linha["sistema"]), linha["pai_id"])
 
 
 def _script(linha: sqlite3.Row) -> Script:
@@ -32,10 +32,12 @@ class RepositorioPastasSQLite:
         with self._banco.transacao() as conexao:
             return _pasta(garantir_geral(conexao))
 
-    def criar(self, nome: str) -> Pasta:
+    def criar(self, nome: str, pai_id: int | None = None) -> Pasta:
         with self._banco.transacao() as conexao:
+            if pai_id is not None:
+                _obter_pasta(conexao, pai_id)
             cursor = conexao.execute(
-                "INSERT INTO pastas (nome, sistema) VALUES (?, 0)", (nome,)
+                "INSERT INTO pastas (nome, sistema, pai_id) VALUES (?, 0, ?)", (nome, pai_id)
             )
             return _obter_pasta(conexao, cursor.lastrowid)
 
@@ -60,6 +62,8 @@ class RepositorioPastasSQLite:
             atual.renomear(pasta.nome)  # Proteção também no adaptador.
             if pasta.sistema != atual.sistema:
                 raise ErroDominio("Não é permitido alterar a proteção de uma pasta.")
+            if pasta.pai_id != atual.pai_id:
+                raise ErroDominio("A renomeação deve preservar a pasta pai.")
             conexao.execute(
                 "UPDATE pastas SET nome = ? WHERE id = ?", (pasta.nome, pasta.id)
             )
@@ -67,7 +71,7 @@ class RepositorioPastasSQLite:
     def excluir_com_scripts(self, pasta_id: int) -> None:
         with self._banco.transacao() as conexao:
             _obter_pasta(conexao, pasta_id).verificar_exclusao()
-            # A chave estrangeira remove os scripts na mesma transação.
+            # As chaves estrangeiras removem descendentes e scripts atomicamente.
             conexao.execute("DELETE FROM pastas WHERE id = ?", (pasta_id,))
 
 
