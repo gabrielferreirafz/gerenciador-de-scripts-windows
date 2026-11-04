@@ -1,207 +1,125 @@
-# Gerenciador de Scripts para Windows
+﻿# Gerenciador de Scripts para Windows
 
-## Inicialização sob demanda (desenvolvimento)
+Ferramenta pessoal para organizar mensagens prontas em pastas e inserir o texto
+no campo selecionado. Interface compacta escura, inspirada no histórico do Windows.
 
-Requer Windows 11 e Python com Tkinter instalado. Esta etapa usa o
-`pythonw.exe` para abrir a interface sem console; a distribuição independente
-de Python será tratada no empacotamento.
+## MVP atual
 
-Execute `scripts/criar_atalho.ps1` uma única vez na configuração inicial de cada
-computador/usuário. Ele apenas cadastra o atalho no Windows. Depois disso, o
-Windows abre o programa diretamente pelo `.lnk` ao pressionar **Alt+C**;
-o script PowerShell não é executado novamente durante o uso normal.
+O foco desta versão são os campos de mensagem do **Blip e WhatsApp Web no Chrome**.
+Esses fluxos funcionaram nos testes manuais da implementação anterior. Esta versão
+reaproveita essa implementação; a validação no seu ambiente continua necessária.
+Não há garantia de funcionamento em todo campo de qualquer página. Pesquisa de
+contatos do WhatsApp, assunto de e-mail e WhatsApp instalado ficam fora deste MVP.
 
-No PowerShell, a partir da raiz do projeto, informe o caminho real do interpretador:
+O programa mantém um receptor leve em segundo plano. **Ctrl+Alt+Z** é registrado
+pelo próprio receptor com `RegisterHotKey`; a espera é bloqueante (`GetMessageW`).
+Não há monitoramento contínuo do foco, polling do teclado, nem banco ou Tkinter
+abertos enquanto apenas o receptor está ocioso. A integração usa somente a
+biblioteca padrão do Python, Win32 e UI Automation via `ctypes`.
 
-```powershell
-.\scripts\criar_atalho.ps1 -PythonwPath 'C:\caminho\Python\pythonw.exe'
-```
+## Configuração e uso no Windows 11
 
-O script cria `Gerenciador de Scripts.lnk` no menu Iniciar do usuário.
-Pressione **Alt+C** para abrir a janela. Para escolher outra combinação:
-
-```powershell
-.\scripts\criar_atalho.ps1 -PythonwPath 'C:\caminho\Python\pythonw.exe' -Hotkey 'CTRL+ALT+J'
-```
-
-Escolha uma combinação livre de conflitos. O script não sobrescreve atalhos
-existentes. Para alterar ou remover o gatilho, abra `shell:programs` pelo
-Executar (`Win+R`) e edite as propriedades ou exclua o atalho.
-Se mover o projeto ou o interpretador, atualize as propriedades do atalho ou
-exclua o antigo e execute o script novamente na nova localização. A recriação
-também é necessária se o atalho for apagado; para mudar apenas as teclas,
-você pode editar suas propriedades.
-
-O Windows gerencia o gatilho; nenhum processo do aplicativo precisa ficar
-aberto esperando teclas. Fechar a janela pelo **X** encerra a aplicação.
-A janela atual oferece gerenciamento de scripts e pastas em tema escuro.
-
-### Validação no Windows 11 Pro
-
-1. Confirme que não existe uma instância do gerenciador aberta.
-2. Pressione a combinação e confira a abertura sem console.
-3. Feche pelo X e confira o encerramento no Gerenciador de Tarefas.
-4. Repita com outra aplicação em foco.
-
-### Resultado da validação
-
-Em 03/11/2026, o usuário confirmou a abertura pelo gatilho **Alt+C** no
-Windows 11 Pro e relatou tempo de abertura de **0,33 segundo** na versão de
-desenvolvimento, executada com Python instalado. A medição relatada atende
-à meta de até 1 segundo nesse teste.
-
-O método de medição e as condições de inicialização a frio e carga não foram
-informados. A validação nessas condições e no executável empacotado permanece
-pendente. Captura de foco e inserção de scripts serão implementadas em etapas
-posteriores.
-
-## Domínio e casos de uso
-
-`src/domain/` contém as entidades imutáveis `Pasta` e `Script`. A pasta de
-sistema é protegida contra renomeação e exclusão. A edição de um script
-preserva sua pasta. Unicidade, validação de textos vazios e limites de tamanho
-continuam pendentes de definição; o conteúdo é preservado literalmente.
-
-`src/application/` contém:
-
-- `pasta.py`: `CasosDeUsoPastas`, com CRUD, inicialização de Geral e exclusão
-  confirmada. `solicitar_exclusao()` fornece o aviso sobre a remoção dos scripts.
-- `scripts.py`: `CasosDeUsoScripts`, com CRUD e consulta por pasta. O cadastro
-  sem escolha de pasta utiliza Geral; uma pasta escolhida deve existir.
-- `inserir_script.py`: `InserirScript`, com resultados de sucesso, falha ou
-  ausência de destino válido. Apenas sucesso tem `deve_encerrar=True`.
-- `contratos.py`: contratos de repositórios e inserção definidos com `Protocol`.
-- `erros.py`: erros de entidade inexistente e confirmação ausente.
-
-Os casos de uso recebem seus adaptadores pelo construtor. A inicialização do
-banco em `main.py` já garante a existência de Geral. A listagem de pastas e o cadastro
-na pasta padrão também garantem sua existência. O adaptador deve implementar
-essa operação de forma idempotente, sem ID fixo nem identificação só pelo nome.
-
-A interface exibe o aviso de exclusão e passa `confirmado=True` somente
-após confirmação explícita. O adaptador exclui pasta e scripts atomicamente.
-As operações de gerenciamento não solicitam encerramento. Após inserção, a
-interface deverá encerrar somente quando `deve_encerrar` indicar sucesso.
-
-O núcleo conta com adaptadores SQLite e testes de transações reais. A interface
-está conectada aos casos de uso de gerenciamento. A integração de inserção no
-Windows será implementada posteriormente. O adaptador de inserção deverá guardar o
-destino anterior à abertura da janela e confirmar a inserção; enviar teclas
-não comprova sucesso.
-
-### Testes do núcleo
-
-Na raiz do projeto, execute no PowerShell:
+Requer Python com Tkinter instalado. Na raiz do projeto, execute no PowerShell:
 
 ```powershell
-$env:PYTHONPATH = (Join-Path (Get-Location) 'src')
-py -B -m unittest discover -s tests -v
+.\scripts\criar_atalho.ps1 -PythonwPath 'C:\caminho\Python\pythonw.exe' -Iniciar
 ```
 
-Os testes do núcleo usam repositórios em memória e simulação da integração de
-texto. Os testes de persistência usam arquivos SQLite temporários reais.
-A inserção em aplicativos externos ainda depende da implementação Windows.
+O script cria ou atualiza `Gerenciador de Scripts.lnk` no menu Iniciar do usuário,
+fazendo uma cópia do atalho anterior em `%LOCALAPPDATA%\GerenciadorScripts\config`.
+O `.lnk` inicia apenas o receptor e **não recebe uma combinação de teclas**:
+isso evita a mudança de foco causada pelo antigo atalho do Explorer.
+O parâmetro `-Iniciar` inicia o receptor imediatamente, sem console.
 
-## Banco de dados SQLite
+Depois da configuração:
 
-O banco usa `sqlite3`, da biblioteca padrão do Python, sem servidor ou instalação
-adicional. Ao iniciar o programa, `main.py` chama `BancoDados().inicializar()`.
-O arquivo é criado automaticamente em:
+1. Abra o gerenciador pelo menu Iniciar para iniciar o receptor, caso não esteja ativo.
+2. Clique no campo de mensagem do Blip ou WhatsApp Web no Chrome.
+3. Pressione **Ctrl+Alt+Z**, entre na pasta e clique no cartão do script.
+4. O programa restaura o destino e cola o texto. **Não pressiona Enter nem envia mensagens.**
+
+O menu de três pontos mantém **Ver script**, **Editar script** e **Excluir script**.
+O conteúdo completo pode ser consultado em **Ver script** antes da inserção.
+Fechar pelo **X**, ou concluir uma inserção, fecha somente a interface. O receptor
+permanece disponível para o próximo Ctrl+Alt+Z. Repetir o atalho com a interface
+aberta não cria outra janela nem substitui seu destino.
+
+Para encerrar tudo, clique com o botão direito no ícone da bandeja e escolha
+**Encerrar gerenciador**. Alternativamente:
+
+```powershell
+py -B src/main.py --encerrar
+```
+
+Não há inicialização automática junto com o Windows nesta etapa. Inicie o receptor
+novamente a cada sessão. Executá-lo outra vez não duplica a instância.
+Ao mover o projeto ou o Python, encerre o receptor e execute novamente o script de
+configuração na nova localização. O script só é usado para configurar/atualizar o
+atalho; não participa de cada abertura da interface.
+
+## Captura e inserção
+
+Ao receber Ctrl+Alt+Z, o receptor captura a janela e a identidade do elemento com
+foco **antes de abrir a interface**. Esses metadados passam ao processo da interface
+por um pipe, sem arquivos temporários com conteúdo do campo. A interface revalida
+esse destino e preserva texto e seleção antes de criar suas janelas.
+
+A inserção usa texto Unicode na área de transferência e `SendInput` para Ctrl+V.
+O conteúdo escolhido substitui somente a seleção capturada ou entra na posição do
+cursor. O programa confere o destino antes da colagem e verifica o resultado pela
+acessibilidade. A conferência aceita quebras CRLF/LF e a conversão de espaços em
+NBSP feita por editores do Chromium. Não altera o texto original salvo no banco.
+A área de transferência passa a conter o script utilizado.
+
+Se o destino mudou, foi fechado ou não expõe os recursos necessários, a janela
+permanece aberta e mostra o motivo. Quando uma colagem já foi tentada e o resultado
+é incerto, não há repetição automática: confira o campo antes de reabrir e tentar
+novamente, evitando duplicar o texto.
+
+## Organização do código
+
+- `src/domain/`: entidades imutáveis `Pasta` e `Script`; proteção da pasta Geral.
+- `src/application/`: CRUD, contratos, coordenação da inserção e identidade da sessão.
+- `src/infraestructure/`: SQLite, repositórios, receptor do atalho, captura UIA e colagem Win32.
+- `src/presentation/`: interface Tkinter/ttk, tema escuro e formulários.
+- `src/main.py`: composição do receptor e da interface sob demanda.
+- `scripts/criar_atalho.ps1`: configuração do atalho do menu Iniciar.
+- `tests/`: testes de regressão do núcleo, persistência, interface e integração Windows.
+
+O projeto não inclui páginas de captura, monitores de foco, logs de investigação
+ou scripts experimentais. A interface conserva a navegação pastas → scripts,
+cartões arredondados com prévia de tamanho fixo e os formulários de gerenciamento.
+
+## Banco de dados
+
+O SQLite é criado automaticamente ao abrir a interface:
 
 ```text
 %LOCALAPPDATA%\GerenciadorScripts\gerenciador.sqlite3
 ```
 
-O caminho é resolvido para o usuário atual, sem nomes pessoais no código.
-Mover a pasta do projeto não muda a localização dos dados. O construtor de
-`BancoDados` também aceita um caminho explícito, usado nos testes isolados.
+O caminho usa o usuário atual, sem nomes pessoais no código. Mover o projeto não
+move o banco. As conexões são fechadas após cada operação; escritas usam transações.
+Chaves estrangeiras e `ON DELETE CASCADE` preservam os relacionamentos.
+Geral é criada de forma idempotente e não pode ser renomeada nem excluída.
+Excluir outra pasta exige confirmação e exclui seus scripts atomicamente.
+O conteúdo textual é preservado literalmente; nomes e títulos podem se repetir.
 
-- `src/infraestructure/database.py`: caminho padrão, abertura e fechamento de
-  conexões, criação do esquema, inicialização de Geral e controle transacional.
-- `src/infraestructure/repository.py`: `RepositorioPastasSQLite` e
-  `RepositorioScriptsSQLite`, implementando os contratos da aplicação e
-  convertendo linhas do banco para entidades `Pasta` e `Script`.
-- `tests/test_sqlite.py`: testes de integração da persistência real.
+## Testes e validação
 
-A tabela `pastas` guarda `id`, `nome` e `sistema` (0 ou 1). A tabela `scripts`
-guarda `id`, `titulo`, `conteudo` e `pasta_id`, com associação obrigatória a uma
-pasta existente. Todas as conexões habilitam `PRAGMA foreign_keys = ON`.
-`ON DELETE CASCADE` remove os scripts junto da pasta; a confirmação continua
-sendo exigida pelo caso de uso antes de chamar o repositório.
-
-Geral é criada uma única vez, sem depender de ID fixo ou apenas do nome.
-Um índice permite somente uma pasta de sistema, e gatilhos SQL impedem sua
-alteração e exclusão. Pastas do usuário podem ter nomes repetidos, inclusive
-Geral, e os títulos de scripts também podem se repetir.
-
-Escritas usam `BEGIN IMMEDIATE`, com `commit` ao concluir e `rollback` em falhas.
-As conexões são fechadas após cada operação. Consultas usam parâmetros para
-preservar o conteúdo literal e evitar interpretar os textos como comandos SQL.
-Arquivos SQLite e seus arquivos auxiliares estão ignorados pelo Git.
-
-Foram executados **41 testes com sucesso** (21 do núcleo e 20 de SQLite), incluindo
-CRUD, persistência após reabertura, concorrência na inicialização, proteção de
-Geral, chaves estrangeiras, cancelamento, cascata, rollback e encerramento abrupto
-de um processo com transação não confirmada. Os testes não simulam falha elétrica
-nem substituem a validação final do aplicativo completo.
-
-A inicialização atual cria o esquema de forma idempotente; não é um sistema de
-migrações para futuras mudanças na estrutura do banco.
-
-Referências: [sqlite3 no Python](https://docs.python.org/3.13/library/sqlite3.html)
-e [chaves estrangeiras no SQLite](https://www.sqlite.org/foreignkeys.html).
-
-## Interface escura
-
-A interface usa Tkinter/ttk, com janela compacta de 400 × 540 unidades Tk
-(a altura inicial se adapta à tela), fonte Segoe UI, cartões arredondados,
-fundo escuro e destaque azul-claro. Ela é inspirada no histórico do Windows;
-não depende de bibliotecas visuais adicionais. No Windows 11, solicita a
-[barra de título escura pelo DWM](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes).
-
-- A janela inicia com uma única listagem de **pastas**, sem cabeçalho de
-  apresentação, subtítulo, indicação de Alt+C ou abas.
-- Clique em qualquer parte do cartão da pasta, exceto no botão **···**, para
-  abrir seus scripts. Use **← Voltar** para retornar à listagem de pastas.
-- Cartões de pasta mostram somente o nome e os três pontos. Seu menu oferece
-  **Abrir pasta**, **Editar pasta** e **Excluir pasta**. Na pasta Geral, edição
-  e exclusão ficam desabilitadas.
-- Cartões de script mostram somente título, prévia do conteúdo e os três
-  pontos. Seu menu oferece **Ver script**, **Editar script** e **Excluir script**.
-  Clicar no cartão também abre o texto completo.
-- Os cartões de script têm altura padronizada: uma linha de título e três de
-  prévia. A prévia resume espaços e quebras de linha e mostra até 150 caracteres,
-  com reticências quando houver corte. **Ver script** exibe o conteúdo original
-  completo, preservando os espaços e as quebras de linha.
-- O botão de criação acompanha a navegação: **+ Nova pasta** na lista inicial
-  e **+ Novo script** dentro de uma pasta.
-- **Voltar**, **+ Nova pasta** e **+ Novo script** têm cantos arredondados.
-  Os cartões têm margens internas de 8 unidades de cada lado da listagem,
-  sem alterar o tamanho da janela ou a posição da barra de rolagem.
-- Os formulários e confirmações também têm tema escuro. Excluir pasta exige
-  confirmação com aviso de que seus scripts serão removidos.
-- As alterações são persistidas no SQLite e as listas são atualizadas.
-  Operações de gerenciamento mantêm a aplicação aberta.
-- **Ctrl+N** abre o cadastro de script; **Ctrl+Shift+N**, o de pasta.
-  **Ctrl+Enter** salva o script no formulário. **Esc** fecha os diálogos.
-
-A ação **Inserir texto** permanece desabilitada enquanto não houver adaptador
-Windows. A interface já aceita o caso de uso `InserirScript` e só encerra após
-um resultado de sucesso; isso ainda requer validação com a integração real.
-Pesquisa e movimentação de scripts entre pastas continuam fora desta etapa.
-
-Para abrir uma prévia com dados fictícios em banco temporário, sem acessar
-os dados pessoais:
+Na raiz do projeto, execute:
 
 ```powershell
-py -B scripts/preview_interface.py
+$env:PYTHONPATH = (Join-Path (Get-Location) 'src')
+py -B -W error::ResourceWarning -m unittest discover -s tests -v
 ```
 
-Os testes em `tests/test_interface.py` exercitam formulários Tk e casos de uso
-com SQLite temporário: criação, edição, cancelamento, abertura por clique no
-cartão, retorno às pastas, menus de três pontos, filtragem por pasta,
-confirmação de exclusão, cascata, proteção de Geral e exibição de erros.
-A suíte completa passou em **60 testes**, incluindo conteúdo longo, muitas quebras
-de linha, altura uniforme dos cartões e visualização integral do texto original.
-Os testes automatizados não substituem
-a conferência visual e a validação final de desempenho no computador-alvo.
+Os testes usam bancos SQLite temporários e simulações das operações de colagem;
+os testes de interface criam widgets Tk reais. Eles não enviam mensagens no Blip
+ou WhatsApp e não substituem a validação manual desses serviços.
+
+Para a validação manual, use um script fictício em um campo de mensagem sem enviar:
+confira texto vazio, texto existente, seleção parcial, acentos, emoji e múltiplas
+linhas. Confirme também reabertura após X/sucesso, ausência de janelas duplicadas e
+encerramento pelo ícone da bandeja. A compatibilidade universal, o empacotamento e
+a medição final de abertura/consumo ficam para etapas posteriores.

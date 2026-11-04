@@ -13,7 +13,7 @@ class ResultadoInsercao(Enum):
 
     @property
     def deve_encerrar(self) -> bool:
-        """A interface encerra a aplicação somente após sucesso confirmado."""
+        """Fecha a interface após sucesso confirmado; o receptor permanece."""
         return self is ResultadoInsercao.SUCESSO
 
 
@@ -33,3 +33,7 @@ class InserirScript:
         if self._insercao.inserir(script.conteudo) is True:
             return ResultadoInsercao.SUCESSO
         return ResultadoInsercao.FALHA
+
+    def diagnostico_falha(self) -> str:
+        detalhe = self._insercao.diagnostico_falha()
+        return detalhe if isinstance(detalhe, str) else ""

@@ -5,10 +5,11 @@ from tempfile import TemporaryDirectory
 import tkinter as tk
 from tkinter import ttk
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from application.pasta import CasosDeUsoPastas
 from application.scripts import CasosDeUsoScripts
+from application.inserir_script import ResultadoInsercao
 from infraestructure.database import BancoDados
 from infraestructure.repository import RepositorioPastasSQLite, RepositorioScriptsSQLite
 from presentation.dialogos import Dialogo, EditorPasta, EditorScript
@@ -154,6 +155,50 @@ class TestInterface(unittest.TestCase):
         botao = next(w for w in descendentes(dialogo)
                      if isinstance(w, ttk.Button) and w.cget("text") == "Inserir texto")
         self.assertTrue(botao.instate(["disabled"]))
+
+    def test_insercao_confirmada_encerra_janela(self):
+        self.ui.insercao = Mock()
+        self.ui.insercao.executar.return_value = ResultadoInsercao.SUCESSO
+        with patch.object(self.root, "destroy") as destruir:
+            self.ui.usar_script(1)
+        self.ui.insercao.executar.assert_called_once_with(1)
+        destruir.assert_called_once()
+
+    def test_sem_destino_ou_falha_reabre_interface(self):
+        self.ui.insercao = Mock()
+        for resultado in (ResultadoInsercao.SEM_DESTINO_VALIDO, ResultadoInsercao.FALHA):
+            self.ui.insercao.executar.return_value = resultado
+            with patch("presentation.interface.informar") as aviso:
+                self.ui.usar_script(1)
+            self.assertTrue(self.root.winfo_exists())
+            self.assertNotEqual(self.root.state(), "withdrawn")
+            aviso.assert_called_once()
+
+    def test_mensagem_de_recusa_inclui_diagnostico_do_adaptador(self):
+        self.ui.insercao = Mock()
+        self.ui.insercao.executar.return_value = ResultadoInsercao.SEM_DESTINO_VALIDO
+        self.ui.insercao.diagnostico_falha.return_value = "Provedor não disponibilizou TextPattern"
+        with patch("presentation.interface.informar") as aviso:
+            self.ui.usar_script(1)
+        self.assertIn("Detalhes: Provedor não disponibilizou TextPattern", aviso.call_args.args[2])
+
+    def test_erro_durante_insercao_reabre_interface(self):
+        self.ui.insercao = Mock()
+        self.ui.insercao.executar.side_effect = OSError("Falha técnica")
+        with patch("presentation.interface.informar"):
+            self.ui.usar_script(1)
+        self.assertNotEqual(self.root.state(), "withdrawn")
+
+    def test_clique_no_script_insere_quando_integracao_disponivel(self):
+        script = self.scripts.criar("Título", "Texto")
+        self.ui.insercao = Mock()
+        self.ui.abrir_pasta(script.pasta_id)
+        self.root.deiconify()
+        self.root.update()
+        cartao = self.ui.lista.corpo.winfo_children()[0]
+        with patch.object(self.ui, "usar_script") as usar:
+            cartao.event_generate("<Button-1>", x=2, y=2)
+        usar.assert_called_once_with(script.id)
 
     def test_erro_de_persistencia_exibe_aviso(self):
         import sqlite3

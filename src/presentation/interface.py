@@ -1,6 +1,7 @@
 """Interface compacta escura, inspirada no histórico do Windows 11."""
 
 import sqlite3
+import sys
 import tkinter as tk
 from tkinter import ttk
 
@@ -16,6 +17,7 @@ from presentation.dialogos import (Dialogo, EditorPasta, EditorScript, campo_tex
 from presentation.tema import (FUNDO, CARTAO, BORDA, TEXTO, SECUNDARIO, DESTAQUE,
                                 Cartao, ListaRolavel, aplicar_tema, barra_escura,
                                 texto)
+from presentation.painel import mostrar_painel
 
 
 class Interface:
@@ -131,7 +133,8 @@ class Interface:
         conteudo.pack(fill="x", pady=(8, 0))
         conteudo.bind("<Configure>", lambda evento: conteudo.configure(
             wraplength=max(100, evento.width - 4)))
-        self._tornar_clicavel(cartao, lambda: self.visualizar(script.id))
+        self._tornar_clicavel(cartao, lambda: self.usar_script(script.id)
+                             if self.insercao is not None else self.visualizar(script.id))
 
     def _mostrar_menu(self, opcoes, ancora=None):
         anterior = getattr(self, "_menu", None)
@@ -270,23 +273,68 @@ class Interface:
             dialogo.mostrar()
         self._executar(abrir)
 
-    def usar_script(self, script_id: int, dialogo: Dialogo):
+    def usar_script(self, script_id: int, dialogo: Dialogo | None = None):
         if self.insercao is None:
             return
 
         def inserir():
-            resultado = self.insercao.executar(script_id)
-            if resultado.deve_encerrar:
-                self.janela.destroy()
-            else:
-                informar(dialogo, "Texto não inserido", "Selecione um campo de texto antes de abrir o programa."
-                         if resultado is ResultadoInsercao.SEM_DESTINO_VALIDO else
-                         "Não foi possível confirmar a inserção. A janela permanecerá aberta.")
+            sucesso = False
+            if dialogo is not None:
+                dialogo.grab_release()
+            self.janela.withdraw()
+            self.janela.update_idletasks()
+            try:
+                resultado = self.insercao.executar(script_id)
+                sucesso = resultado.deve_encerrar
+                if sucesso:
+                    self.janela.destroy()
+            finally:
+                if not sucesso:
+                    self.janela.deiconify()
+                    self.janela.lift()
+                    if dialogo is not None:
+                        dialogo.deiconify()
+                        dialogo.grab_set()
+            if not sucesso:
+                detalhe = self.insercao.diagnostico_falha()
+                mensagem = (
+                    "O campo original está indisponível ou não pôde ser identificado. "
+                    "Posicione o cursor no destino e abra o programa novamente."
+                    if resultado is ResultadoInsercao.SEM_DESTINO_VALIDO else
+                    "Não foi possível confirmar a inserção. Confira o campo de destino "
+                    "antes de tentar novamente. A janela permanecerá aberta.")
+                if isinstance(detalhe, str) and detalhe:
+                    mensagem += "\n\nDetalhes: " + detalhe
+                informar(dialogo or self.janela, "Texto não inserido",
+                         mensagem)
         self._executar(inserir, dialogo)
 
 
 def abrir_interface(pastas: CasosDeUsoPastas, scripts: CasosDeUsoScripts,
-                    insercao: InserirScript | None = None) -> None:
+                    insercao: InserirScript | None = None,
+                    parada=None) -> None:
+    if parada is not None and parada.sinalizado():
+        return
     janela = tk.Tk()
+    janela.withdraw()
+    if sys.platform == "win32":
+        janela.attributes("-toolwindow", True)
     Interface(janela, pastas, scripts, insercao)
+    mostrar_painel(janela)
+    if parada is not None:
+        # Apenas enquanto a interface está aberta. O receptor ocioso não
+        # usa timers nem consultas periódicas ao foco/teclado/banco.
+        tarefa = None
+        def conferir_parada():
+            nonlocal tarefa
+            tarefa = None
+            if parada.sinalizado():
+                janela.destroy()
+            else:
+                tarefa = janela.after(500, conferir_parada)
+        def cancelar_parada(evento):
+            if evento.widget is janela and tarefa is not None:
+                janela.after_cancel(tarefa)
+        janela.bind("<Destroy>", cancelar_parada, add="+")
+        conferir_parada()
     janela.mainloop()

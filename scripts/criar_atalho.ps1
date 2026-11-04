@@ -2,8 +2,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$PythonwPath,
 
-    [ValidatePattern('^(?i)(ALT\+[A-Z0-9]|CTRL\+ALT\+[A-Z0-9])$')]
-    [string]$Hotkey = 'ALT+C'
+    [switch]$Iniciar
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,14 +18,18 @@ if (-not (Test-Path -LiteralPath $entryPoint -PathType Leaf)) {
     throw "Ponto de entrada inexistente: $entryPoint"
 }
 
-# O atalho fica no menu Iniciar do usuário, sem iniciar com o Windows.
+# O .lnk inicia o receptor. Ctrl+Alt+Z é registrado pelo próprio receptor.
 $programs = [Environment]::GetFolderPath('Programs')
 if (-not $programs -or -not (Test-Path -LiteralPath $programs -PathType Container)) {
     throw 'Não foi possível localizar o menu Iniciar do usuário.'
 }
 $shortcutPath = Join-Path $programs 'Gerenciador de Scripts.lnk'
 if (Test-Path -LiteralPath $shortcutPath) {
-    throw "Já existe um atalho em $shortcutPath. Remova-o ou ajuste-o manualmente."
+    $backupDir = Join-Path $env:LOCALAPPDATA 'GerenciadorScripts\config'
+    New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+    $backupPath = Join-Path $backupDir ('atalho_' + (Get-Date -Format 'yyyyMMdd_HHmmss_fff') + '.lnk')
+    Copy-Item -LiteralPath $shortcutPath -Destination $backupPath
+    Write-Output "Backup do atalho anterior: $backupPath"
 }
 
 $shell = New-Object -ComObject WScript.Shell
@@ -34,10 +37,30 @@ $shortcut = $shell.CreateShortcut($shortcutPath)
 $shortcut.TargetPath = $pythonw
 $shortcut.Arguments = '"' + $entryPoint + '"'
 $shortcut.WorkingDirectory = $projectRoot
-$shortcut.Description = 'Abrir o Gerenciador de Scripts sob demanda'
-$shortcut.Hotkey = $Hotkey
+$shortcut.Description = 'Iniciar o receptor de Ctrl+Alt+Z do Gerenciador de Scripts'
+$shortcut.Hotkey = ''
 $shortcut.WindowStyle = 1
 $shortcut.Save()
 
+if (-not ('GerenciadorAtalho.Shell' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+namespace GerenciadorAtalho {
+    public static class Shell {
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        public static extern void SHChangeNotify(uint evento, uint flags, string caminho, IntPtr outro);
+    }
+}
+'@
+}
+[GerenciadorAtalho.Shell]::SHChangeNotify(0x2000, 5, $shortcutPath, [IntPtr]::Zero)
+
 Write-Output "Atalho criado: $shortcutPath"
-Write-Output "Combinação: $Hotkey"
+Write-Output 'Ctrl+Alt+Z será recebido pelo programa em segundo plano; o .lnk não possui hotkey.'
+if ($Iniciar) {
+    Start-Sleep -Seconds 2
+    $processo = Start-Process -FilePath $pythonw -ArgumentList @('-B', ('"' + $entryPoint + '"')) -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru
+    Write-Output 'Receptor iniciado. Use Ctrl+Alt+Z no campo desejado.'
+    Write-Output "PID iniciado: $($processo.Id) (se já houver receptor, essa nova execução termina)."
+}

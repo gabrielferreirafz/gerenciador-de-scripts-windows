@@ -1,4 +1,4 @@
-"""Portas implementadas futuramente pelos adaptadores SQLite e Windows."""
+"""Contratos implementados pelos adaptadores SQLite e Windows."""
 
 from typing import Protocol
 
@@ -56,6 +56,10 @@ class InsercaoTexto(Protocol):
     """
 
     def destino_valido(self) -> bool: ...
+
+    def diagnostico_falha(self) -> str:
+        """Explica a recusa sem incluir texto, título ou conteúdo do destino."""
+        ...
 
     def inserir(self, conteudo: str) -> bool:
         """Revalida o destino, restaura o foco e tenta inserir o texto.
