@@ -64,8 +64,8 @@ class InsercaoTexto(Protocol):
     def inserir(self, conteudo: str) -> bool:
         """Revalida o destino, restaura o foco e tenta inserir o texto.
 
-        Retorna True somente quando a inserção for reconhecida como bem-sucedida.
-        Enviar eventos de teclado, por si só, não comprova sucesso. Retorna False
-        em falha ou resultado incerto, inclusive se o destino deixar de ser válido.
+        Retorna True quando o Windows aceita o envio das teclas de colagem.
+        Não lê o campo depois da colagem nem confirma o conteúdo inserido.
+        Retorna False se o destino for inválido ou o envio falhar.
         """
         ...

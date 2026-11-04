@@ -45,7 +45,7 @@ Depois da configuração:
 
 O menu de três pontos mantém **Ver script**, **Editar script** e **Excluir script**.
 O conteúdo completo pode ser consultado em **Ver script** antes da inserção.
-Fechar pelo **X**, ou concluir uma inserção, fecha somente a interface. O receptor
+Fechar pelo **X**, ou clicar no script para inseri-lo, fecha somente a interface. O receptor
 permanece disponível para o próximo Ctrl+Alt+Z. Repetir o atalho com a interface
 aberta não cria outra janela nem substitui seu destino.
 
@@ -70,7 +70,8 @@ Para reativar, execute a configuração novamente com `-IniciarComWindows`.
 
 Para validar, saia da conta e entre novamente (ou reinicie o computador): o ícone
 deve aparecer na bandeja, sem abrir a interface. Clique no campo de mensagem e
-pressione **Ctrl+Alt+Z**. A confirmação desse logon real deve ser feita manualmente.
+pressione **Ctrl+Alt+Z**. A inicialização após reiniciar o computador foi validada
+pelo usuário em 04/11/2026.
 
 ## Pastas e subpastas
 
@@ -108,15 +109,17 @@ esse destino e preserva texto e seleção antes de criar suas janelas.
 
 A inserção usa texto Unicode na área de transferência e `SendInput` para Ctrl+V.
 O conteúdo escolhido substitui somente a seleção capturada ou entra na posição do
-cursor. O programa confere o destino antes da colagem e verifica o resultado pela
-acessibilidade. A conferência aceita quebras CRLF/LF e a conversão de espaços em
-NBSP feita por editores do Chromium. Não altera o texto original salvo no banco.
-A área de transferência passa a conter o script utilizado.
+cursor. O programa confere o destino antes da colagem. Ao clicar no script, a
+interface é ocultada imediatamente e encerrada após a tentativa de envio de Ctrl+V,
+sem reler o campo para confirmar a inserção nem aguardar seu resultado. O receptor
+continua em segundo plano. O texto original salvo no banco permanece intacto;
+a área de transferência passa a conter o script utilizado.
 
-Se o destino mudou, foi fechado ou não expõe os recursos necessários, a janela
-permanece aberta e mostra o motivo. Quando uma colagem já foi tentada e o resultado
-é incerto, não há repetição automática: confira o campo antes de reabrir e tentar
-novamente, evitando duplicar o texto.
+Se o destino mudou, foi fechado ou não expõe os recursos necessários, o programa
+recusa a colagem e também fecha a interface. Não exibe confirmação de inserção
+nem repete a colagem automaticamente. Confira o campo antes de reabrir e tentar
+novamente. A ação **Inserir texto** na visualização completa segue o mesmo fluxo;
+abrir pastas, visualizar e gerenciar scripts continuam mantendo a interface aberta.
 
 ## Organização do código
 
@@ -162,6 +165,6 @@ ou WhatsApp e não substituem a validação manual desses serviços.
 
 Para a validação manual, use um script fictício em um campo de mensagem sem enviar:
 confira texto vazio, texto existente, seleção parcial, acentos, emoji e múltiplas
-linhas. Confirme também reabertura após X/sucesso, ausência de janelas duplicadas e
+linhas. Confirme também reabertura após X/clique no script, ausência de janelas duplicadas e
 encerramento pelo ícone da bandeja. A compatibilidade universal, o empacotamento e
 a medição final de abertura/consumo ficam para etapas posteriores.

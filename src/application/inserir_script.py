@@ -1,4 +1,4 @@
-"""Coordena a inserção sem presumir que enviar eventos significa sucesso."""
+"""Solicita a colagem no destino capturado, sem verificar o texto inserido."""
 
 from enum import Enum
 
@@ -9,12 +9,7 @@ from application.erros import EntidadeNaoEncontrada
 class ResultadoInsercao(Enum):
     SEM_DESTINO_VALIDO = "sem_destino_valido"
     FALHA = "falha"
-    SUCESSO = "sucesso"
-
-    @property
-    def deve_encerrar(self) -> bool:
-        """Fecha a interface após sucesso confirmado; o receptor permanece."""
-        return self is ResultadoInsercao.SUCESSO
+    ENVIADO = "enviado"
 
 
 class InserirScript:
@@ -31,7 +26,7 @@ class InserirScript:
         if not self._insercao.destino_valido():
             return ResultadoInsercao.SEM_DESTINO_VALIDO
         if self._insercao.inserir(script.conteudo) is True:
-            return ResultadoInsercao.SUCESSO
+            return ResultadoInsercao.ENVIADO
         return ResultadoInsercao.FALHA
 
     def diagnostico_falha(self) -> str:

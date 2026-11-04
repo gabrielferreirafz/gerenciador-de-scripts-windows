@@ -220,29 +220,26 @@ class TestInsercao(unittest.TestCase):
         self.porta = create_autospec(InsercaoTexto, instance=True)
         self.caso = InserirScript(self.repo, self.porta)
 
-    def test_sem_destino_nao_envia_nem_solicita_encerramento(self):
+    def test_sem_destino_nao_envia(self):
         self.porta.destino_valido.return_value = False
         resultado = self.caso.executar(self.script.id)
         self.assertIs(resultado, ResultadoInsercao.SEM_DESTINO_VALIDO)
-        self.assertFalse(resultado.deve_encerrar)
         self.porta.inserir.assert_not_called()
 
-    def test_sucesso_confirmado_solicita_encerramento(self):
+    def test_retorna_enviado_quando_windows_aceita_colagem(self):
         self.porta.destino_valido.return_value = True
         self.porta.inserir.return_value = True
         resultado = self.caso.executar(self.script.id)
-        self.assertIs(resultado, ResultadoInsercao.SUCESSO)
-        self.assertTrue(resultado.deve_encerrar)
+        self.assertIs(resultado, ResultadoInsercao.ENVIADO)
         self.porta.inserir.assert_called_once_with(self.script.conteudo)
 
-    def test_falha_ou_resultado_incerto_mantem_aplicacao_aberta(self):
+    def test_retorna_falha_quando_nao_ha_envio(self):
         self.porta.destino_valido.return_value = True
         for resposta in (False, None, 1):
             with self.subTest(resposta=resposta):
                 self.porta.inserir.return_value = resposta
                 resultado = self.caso.executar(self.script.id)
                 self.assertIs(resultado, ResultadoInsercao.FALHA)
-                self.assertFalse(resultado.deve_encerrar)
 
     def test_script_inexistente_nao_interage_com_destino(self):
         with self.assertRaises(EntidadeNaoEncontrada):

@@ -3,7 +3,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from infraestructure.windows import InsercaoWindows, normalizar, confirmar_substituicao, confirmar_texto
+from infraestructure.windows import InsercaoWindows, normalizar
 
 
 class TestInsercaoWindows(unittest.TestCase):
@@ -25,18 +25,18 @@ class TestInsercaoWindows(unittest.TestCase):
         self.insercao.processo = 20
         self.insercao.campo = self.campo
 
-    def colagem_confirmada(self, texto):
+
+    def test_envia_unicode_sem_ler_o_resultado_ou_aguardar_confirmacao(self):
         def colar():
-            self.campo.ler.return_value = self.campo.prefixo + texto + self.campo.sufixo
+            self.campo.ler.side_effect = AssertionError("Não ler o campo após colar")
             return True
         self.api.colar.side_effect = colar
-
-    def test_substitui_selecao_e_confirma_texto_exato(self):
-        self.colagem_confirmada("Olá!\r\nComo ajudar? 👋")
-        self.assertTrue(self.insercao.inserir("Olá!\nComo ajudar? 👋"))
+        with patch("infraestructure.windows.time.sleep") as esperar:
+            self.assertTrue(self.insercao.inserir("Olá!\nComo ajudar? 👋"))
         self.campo.restaurar.assert_called_once()
         self.api.copiar.assert_called_once_with("Olá!\nComo ajudar? 👋")
         self.api.colar.assert_called_once()
+        esperar.assert_not_called()
 
     def test_sem_campo_nao_copia_nem_cola(self):
         self.insercao.campo = None
@@ -93,23 +93,20 @@ class TestInsercaoWindows(unittest.TestCase):
         self.assertFalse(self.insercao.inserir("Texto"))
         self.api.colar.assert_not_called()
 
-    def test_envio_parcial_nao_confirma_nem_repete(self):
+    def test_envio_parcial_nao_repete_colagem(self):
         self.api.colar.return_value = False
         self.assertFalse(self.insercao.inserir("Texto"))
         self.assertFalse(self.insercao.inserir("Texto"))
         self.api.colar.assert_called_once()
 
-    def test_enviar_teclas_sem_mudar_texto_nao_comprova_sucesso(self):
+    def test_envio_aceito_retorna_sem_exigir_mudanca_do_texto(self):
         self.api.colar.return_value = True
-        with patch("infraestructure.windows.time.monotonic", side_effect=[0, 2]):
-            self.assertFalse(self.insercao.inserir("Texto"))
-        self.assertIn("colagem foi solicitada", self.insercao.diagnostico_falha())
-        self.assertIn("acessibilidade", self.insercao.diagnostico_falha())
+        self.assertTrue(self.insercao.inserir("Texto"))
         self.assertFalse(self.insercao.destino_valido())
         self.api.colar.assert_called_once()
 
-    def test_texto_vazio_nul_e_sem_alteracao_nao_sao_enviados(self):
-        for conteudo in ("", "a\0b", "alvo"):
+    def test_texto_vazio_e_nul_nao_sao_enviados(self):
+        for conteudo in ("", "a\0b"):
             self.assertFalse(self.insercao.inserir(conteudo))
         self.api.colar.assert_not_called()
 
@@ -130,14 +127,10 @@ class TestInsercaoWindows(unittest.TestCase):
     def test_normaliza_somente_quebras_sem_remover_espacos(self):
         self.assertEqual(normalizar("  a\r\nb\rc\n  "), "  a\nb\nc\n  ")
 
-    def test_confirmacao_web_aceita_apenas_variacao_direcional_de_espaco(self):
-        self.assertTrue(confirmar_texto("antes texto depois", "antes\u00a0texto\u00a0depois", True))
-        self.assertFalse(confirmar_texto("antes texto depois", "antes\u00a0texto\u00a0depois"))
-        for esperado, atual in (("a b", "a  b"), ("a b", "ab"),
-                                 ("a\u00a0b", "a b"), ("a b", "a\u200bb"),
-                                 ("a\nb", "a b"), ("a b", "a x")):
-            with self.subTest(esperado=esperado, atual=atual):
-                self.assertFalse(confirmar_texto(esperado, atual, True))
+    def test_pode_enviar_texto_igual_a_selecao_original(self):
+        self.api.colar.return_value = True
+        self.assertTrue(self.insercao.inserir("alvo"))
+        self.api.colar.assert_called_once()
 
     def test_captura_aguarda_provider_do_navegador_ficar_pronto(self):
         automacao = Mock()
@@ -203,37 +196,13 @@ class TestInsercaoWindows(unittest.TestCase):
         self.assertFalse(self.insercao.destino_valido())
         self.assertEqual(self.insercao.diagnostico_falha(), self.insercao.erro_captura)
 
-    def test_valuepattern_confirma_sem_offsets_de_selecao(self):
+    def test_valuepattern_envia_sem_offsets_ou_confirmacao(self):
         self.campo.prefixo = None
         self.campo.sufixo = None
-
-        def colar():
-            self.campo.ler.return_value = "antes Olá! depois"
-            return True
-
-        self.api.colar.side_effect = colar
+        self.api.colar.return_value = True
         self.assertTrue(self.insercao.inserir("Olá!"))
+        self.api.colar.assert_called_once()
 
-    def test_valuepattern_nao_confirma_texto_apenas_por_conter_script(self):
-        casos = (
-            ("abc", "X", "abXc", True),
-            ("abc", "X", "aXc", True),
-            ("abc", "X", "X", True),
-            ("", "Olá!", "Olá!", True),
-            ("abc", "X", "Xabc", True),
-            ("abc", "X", "abcX", True),
-            ("  ab\r\nc  ", "Olá!\n", "  aOlá!\nc  ", True),
-            ("aaaa", "aa", "aaaaaa", True),
-            ("abc", "X", "texto errado X", False),
-            ("abc", "X", "abXconteúdo extra", False),
-            ("abc", "X", "abc", False),
-            ("abc", "abc", "abc", False),
-            ("abc", "", "ab", False),
-            ("", "Olá!", "Olá! extra", False),
-        )
-        for original, inserido, atual, esperado in casos:
-            with self.subTest(original=original, inserido=inserido, atual=atual):
-                self.assertEqual(confirmar_substituicao(original, inserido, atual), esperado)
 
 
 if __name__ == "__main__":

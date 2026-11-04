@@ -1,52 +1,15 @@
-"""Inserção no destino original via Win32 e confirmação por UI Automation."""
+"""Colagem no destino original via Win32, sem confirmação posterior do texto."""
 
 import ctypes as c
 from ctypes import wintypes as w
 import os
 import time
 
-from infraestructure.uia import Automacao, CampoTexto
+from infraestructure.uia import Automacao
 
 
 def normalizar(texto: str) -> str:
     return texto.replace("\r\n", "\n").replace("\r", "\n")
-
-
-def confirmar_texto(esperado: str, atual: str, espacos_web=False) -> bool:
-    esperado, atual = normalizar(esperado), normalizar(atual)
-    if esperado == atual:
-        return True
-    if not espacos_web or len(esperado) != len(atual):
-        return False
-    # Editores HTML podem converter um espaço comum para NBSP ao colar.
-    # A equivalência é direcional: não apaga espaços, quebras ou caracteres,
-    # nem transforma um NBSP solicitado pelo usuário em espaço comum.
-    return all(e == a or (e == " " and a == "\u00a0") for e, a in zip(esperado, atual))
-
-
-def confirmar_substituicao(original: str, inserido: str, atual: str) -> bool:
-    """Confere uma inserção/substituição contígua preservando todo o entorno.
-
-    Usado somente por ValuePattern, que não disponibiliza offsets de seleção.
-    Não basta encontrar o script no campo: o restante precisa corresponder ao
-    original, permitindo apenas a substituição de um intervalo selecionado.
-    """
-    original, inserido, atual = map(normalizar, (original, inserido, atual))
-    if not inserido or atual == original or len(atual) - len(inserido) > len(original):
-        return False
-    prefixo = 0
-    for antes, depois in zip(original, atual):
-        if antes != depois:
-            break
-        prefixo += 1
-    sufixo = 0
-    for antes, depois in zip(reversed(original), reversed(atual)):
-        if antes != depois:
-            break
-        sufixo += 1
-    inicio = max(0, len(atual) - len(inserido) - sufixo)
-    fim = min(prefixo, len(atual) - len(inserido))
-    return inicio <= fim and atual.find(inserido, inicio, fim + len(inserido)) >= 0
 
 
 class _Teclado(c.Structure):
@@ -402,12 +365,6 @@ class InsercaoWindows:
     def inserir(self, conteudo):
         if not conteudo or "\0" in conteudo or not self.destino_valido():
             return False
-        esperado = (normalizar(self.campo.prefixo + conteudo + self.campo.sufixo)
-                    if self.campo.prefixo is not None else None)
-        espacos_web = (isinstance(self.campo, CampoTexto)
-                       and self.api.classe_janela(self.janela) == "Chrome_WidgetWin_1")
-        if esperado is not None and esperado == normalizar(self.campo.original):
-            return False
         etapa = "restaurar a janela de destino"
         try:
             if not self.api.restaurar(self.janela):
@@ -429,18 +386,8 @@ class InsercaoWindows:
             self.tentou_colar = True
             etapa = "enviar a colagem"
             if not self.api.colar():
-                return self._recusar("O Windows não confirmou o envio completo das teclas de colagem. Confira o campo antes de repetir.")
-            etapa = "conferir o resultado pela acessibilidade"
-            limite = time.monotonic() + 1
-            while True:
-                atual = self.campo.ler()
-                confirmado = (confirmar_texto(esperado, atual, espacos_web) if esperado is not None else
-                              confirmar_substituicao(self.campo.original, conteudo, atual))
-                if confirmado:
-                    return True
-                if time.monotonic() >= limite:
-                    return self._recusar("A colagem foi solicitada, mas o texto retornado pela acessibilidade não confirmou o resultado esperado. Confira se o texto apareceu antes de repetir.")
-                time.sleep(0.025)
+                return self._recusar("O Windows não aceitou o envio completo das teclas de colagem. Confira o campo antes de repetir.")
+            return True
         except OSError as erro:
             return self._recusar(f"Falha ao {etapa}: {erro}")
 

@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from application.erros import ConfirmacaoNecessaria, EntidadeNaoEncontrada
-from application.inserir_script import InserirScript, ResultadoInsercao
+from application.inserir_script import InserirScript
 from application.pasta import CasosDeUsoPastas
 from application.scripts import CasosDeUsoScripts
 from domain.erros import ErroDominio
@@ -297,37 +297,18 @@ class Interface:
         if self.insercao is None:
             return
 
-        def inserir():
-            sucesso = False
-            if dialogo is not None:
-                dialogo.grab_release()
-            self.janela.withdraw()
-            self.janela.update_idletasks()
-            try:
-                resultado = self.insercao.executar(script_id)
-                sucesso = resultado.deve_encerrar
-                if sucesso:
-                    self.janela.destroy()
-            finally:
-                if not sucesso:
-                    self.janela.deiconify()
-                    self.janela.lift()
-                    if dialogo is not None:
-                        dialogo.deiconify()
-                        dialogo.grab_set()
-            if not sucesso:
-                detalhe = self.insercao.diagnostico_falha()
-                mensagem = (
-                    "O campo original está indisponível ou não pôde ser identificado. "
-                    "Posicione o cursor no destino e abra o programa novamente."
-                    if resultado is ResultadoInsercao.SEM_DESTINO_VALIDO else
-                    "Não foi possível confirmar a inserção. Confira o campo de destino "
-                    "antes de tentar novamente. A janela permanecerá aberta.")
-                if isinstance(detalhe, str) and detalhe:
-                    mensagem += "\n\nDetalhes: " + detalhe
-                informar(dialogo or self.janela, "Texto não inserido",
-                         mensagem)
-        self._executar(inserir, dialogo)
+        if dialogo is not None:
+            dialogo.grab_release()
+            dialogo.withdraw()
+        # Oculta imediatamente; mantém os recursos até enviar a colagem.
+        self.janela.withdraw()
+        self.janela.update_idletasks()
+        try:
+            self.insercao.executar(script_id)
+        except (ErroDominio, EntidadeNaoEncontrada, sqlite3.Error, OSError):
+            pass  # O clique encerra a interface também quando não é possível colar.
+        finally:
+            self.janela.destroy()
 
 
 def abrir_interface(pastas: CasosDeUsoPastas, scripts: CasosDeUsoScripts,

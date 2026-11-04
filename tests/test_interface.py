@@ -156,38 +156,47 @@ class TestInterface(unittest.TestCase):
                      if isinstance(w, ttk.Button) and w.cget("text") == "Inserir texto")
         self.assertTrue(botao.instate(["disabled"]))
 
-    def test_insercao_confirmada_encerra_janela(self):
+    def test_clique_oculta_interface_antes_de_tentar_e_fecha_apos_envio(self):
         self.ui.insercao = Mock()
-        self.ui.insercao.executar.return_value = ResultadoInsercao.SUCESSO
+        def executar(_):
+            self.assertEqual(self.root.state(), "withdrawn")
+            return ResultadoInsercao.ENVIADO
+        self.ui.insercao.executar.side_effect = executar
         with patch.object(self.root, "destroy") as destruir:
             self.ui.usar_script(1)
         self.ui.insercao.executar.assert_called_once_with(1)
         destruir.assert_called_once()
 
-    def test_sem_destino_ou_falha_reabre_interface(self):
+    def test_sem_destino_ou_falha_tambem_fecha_sem_aviso(self):
         self.ui.insercao = Mock()
         for resultado in (ResultadoInsercao.SEM_DESTINO_VALIDO, ResultadoInsercao.FALHA):
             self.ui.insercao.executar.return_value = resultado
-            with patch("presentation.interface.informar") as aviso:
+            with patch.object(self.root, "destroy") as destruir, \
+                    patch("presentation.interface.informar") as aviso:
                 self.ui.usar_script(1)
-            self.assertTrue(self.root.winfo_exists())
-            self.assertNotEqual(self.root.state(), "withdrawn")
-            aviso.assert_called_once()
+            destruir.assert_called_once()
+            aviso.assert_not_called()
 
-    def test_mensagem_de_recusa_inclui_diagnostico_do_adaptador(self):
+    def test_inserir_pela_visualizacao_tambem_oculta_dialogo_e_fecha(self):
         self.ui.insercao = Mock()
-        self.ui.insercao.executar.return_value = ResultadoInsercao.SEM_DESTINO_VALIDO
-        self.ui.insercao.diagnostico_falha.return_value = "Provedor não disponibilizou TextPattern"
-        with patch("presentation.interface.informar") as aviso:
-            self.ui.usar_script(1)
-        self.assertIn("Detalhes: Provedor não disponibilizou TextPattern", aviso.call_args.args[2])
+        dialogo = Dialogo(self.root, "Visualizar script")
+        def executar(_):
+            self.assertEqual(dialogo.state(), "withdrawn")
+            return ResultadoInsercao.ENVIADO
+        self.ui.insercao.executar.side_effect = executar
+        with patch.object(self.root, "destroy") as destruir:
+            self.ui.usar_script(1, dialogo)
+        destruir.assert_called_once()
+        self.ui.insercao.diagnostico_falha.assert_not_called()
 
-    def test_erro_durante_insercao_reabre_interface(self):
+    def test_erro_durante_insercao_tambem_fecha_sem_aviso(self):
         self.ui.insercao = Mock()
         self.ui.insercao.executar.side_effect = OSError("Falha técnica")
-        with patch("presentation.interface.informar"):
+        with patch.object(self.root, "destroy") as destruir, \
+                patch("presentation.interface.informar") as aviso:
             self.ui.usar_script(1)
-        self.assertNotEqual(self.root.state(), "withdrawn")
+        destruir.assert_called_once()
+        aviso.assert_not_called()
 
     def test_clique_no_script_insere_quando_integracao_disponivel(self):
         script = self.scripts.criar("Título", "Texto")
