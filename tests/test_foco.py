@@ -114,7 +114,8 @@ class TestFoco(unittest.TestCase):
                 patch("presentation.interface.abrir_interface") as abrir:
             main.executar_interface(foco, parada)
         self.assertEqual(eventos, ["foco", "insercao", "banco"])
-        self.assertEqual(abrir.call_args.kwargs, {"parada": parada})
+        self.assertIs(abrir.call_args.kwargs["parada"], parada)
+        self.assertIsNotNone(abrir.call_args.kwargs["organizacao"])
         insercao.fechar.assert_called_once()
 
 

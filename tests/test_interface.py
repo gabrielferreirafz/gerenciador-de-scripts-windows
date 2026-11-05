@@ -207,6 +207,7 @@ class TestInterface(unittest.TestCase):
         cartao = self.ui.lista.corpo.winfo_children()[0]
         with patch.object(self.ui, "usar_script") as usar:
             cartao.event_generate("<Button-1>", x=2, y=2)
+            cartao.event_generate("<ButtonRelease-1>", x=2, y=2)
         usar.assert_called_once_with(script.id)
 
     def test_erro_de_persistencia_exibe_aviso(self):
@@ -228,6 +229,7 @@ class TestInterface(unittest.TestCase):
                 if parte == "nome":
                     alvo = next(w for w in cartao.corpo.winfo_children() if isinstance(w, tk.Label))
                 alvo.event_generate("<Button-1>", x=2, y=2)
+                alvo.event_generate("<ButtonRelease-1>", x=2, y=2)
                 self.assertEqual(self.ui.pasta_id, geral.id)
 
     def test_menu_da_pasta_nao_navega_ao_ser_aberto(self):

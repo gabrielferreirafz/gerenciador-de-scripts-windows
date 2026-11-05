@@ -13,6 +13,8 @@ def executar_interface(origem, parada):
     from application.pasta import CasosDeUsoPastas
     from application.scripts import CasosDeUsoScripts
     from application.inserir_script import InserirScript
+    from application.organizacao import CasosDeUsoOrganizacao
+    from infraestructure.repository import RepositorioOrganizacaoSQLite
 
     # Antes de importar Tkinter/criar janelas ou inicializar o banco.
     if parada.sinalizado():
@@ -35,7 +37,8 @@ def executar_interface(origem, parada):
         scripts = RepositorioScriptsSQLite(banco)
         from presentation.interface import abrir_interface
         abrir_interface(CasosDeUsoPastas(pastas), CasosDeUsoScripts(scripts, pastas),
-                        InserirScript(scripts, insercao), parada=parada)
+                        InserirScript(scripts, insercao), parada=parada,
+                        organizacao=CasosDeUsoOrganizacao(RepositorioOrganizacaoSQLite(banco)))
     finally:
         insercao.fechar()
 

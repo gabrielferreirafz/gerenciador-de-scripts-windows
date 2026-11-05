@@ -7,6 +7,7 @@ from tkinter import ttk
 
 from application.erros import ConfirmacaoNecessaria, EntidadeNaoEncontrada
 from application.inserir_script import InserirScript
+from application.organizacao import CasosDeUsoOrganizacao
 from application.pasta import CasosDeUsoPastas
 from application.scripts import CasosDeUsoScripts
 from domain.erros import ErroDominio
@@ -18,15 +19,18 @@ from presentation.tema import (FUNDO, CARTAO, BORDA, TEXTO, SECUNDARIO, DESTAQUE
                                 Cartao, ListaRolavel, aplicar_tema, barra_escura,
                                 texto)
 from presentation.painel import mostrar_painel
+from presentation.ordenacao import ArrastarCartoes
 
 
 class Interface:
     def __init__(self, janela: tk.Tk, pastas: CasosDeUsoPastas,
-                 scripts: CasosDeUsoScripts, insercao: InserirScript | None = None):
+                 scripts: CasosDeUsoScripts, insercao: InserirScript | None = None,
+                 organizacao: CasosDeUsoOrganizacao | None = None):
         self.janela = janela
         self.pastas = pastas
         self.scripts = scripts
         self.insercao = insercao
+        self.organizacao = organizacao
         self.pasta_id: int | None = None
         self._pastas: list[Pasta] = []
         aplicar_tema(janela)
@@ -56,6 +60,7 @@ class Interface:
                                         style="Arredondado.TButton", command=self.editar_pasta)
         self.lista = ListaRolavel(self.janela)
         self.lista.pack(fill="both", expand=True, padx=(20, 12), pady=(0, 12))
+        self.arraste = ArrastarCartoes(self.lista, self._reordenar)
 
     def _executar(self, acao, pai=None) -> bool:
         try:
@@ -91,6 +96,7 @@ class Interface:
         if not any(p.id == self.pasta_id for p in self._pastas):
             self.pasta_id = None
         self.botao_novo.configure(text="+ Nova pasta" if self.pasta_id is None else "+ Novo script")
+        self.arraste.reiniciar()
         self.lista.limpar()
         if self.pasta_id is not None:
             self.botao_voltar.pack(side="left")
@@ -104,11 +110,11 @@ class Interface:
             self.pasta_atual.configure(text=" / ".join(reversed(caminho)))
             self.pasta_atual.pack(fill="x", padx=20, pady=(0, 12), before=self.lista)
             filhas = [p for p in self._pastas if p.pai_id == self.pasta_id]
-            for filha in filhas:
-                self._cartao_pasta(filha)
             itens = self.scripts.listar(self.pasta_id)
-            for script in itens:
-                self._cartao_script(script)
+            misturados = [(p.ordem, 0, p.id, p) for p in filhas]
+            misturados += [(s.ordem, 1, s.id, s) for s in itens]
+            for _, tipo, _, item in sorted(misturados, key=lambda item: item[:3]):
+                self._cartao_pasta(item) if tipo == 0 else self._cartao_script(item)
             if not itens and not filhas:
                 self._vazio()
         else:
@@ -121,6 +127,15 @@ class Interface:
 
     def _novo(self):
         self.editar_pasta() if self.pasta_id is None else self.editar_script()
+
+    def _reordenar(self, itens):
+        if self.organizacao is not None:
+            self._executar(lambda: self.organizacao.reordenar(self.pasta_id, itens))
+        # Também restaura a ordem real se a listagem mudou ou a gravação falhou.
+        rolagem = self.lista.canvas.yview()[0]
+        self._executar(self.atualizar)
+        self.janela.update_idletasks()
+        self.lista.canvas.yview_moveto(rolagem)
 
     def _vazio(self):
         quadro = tk.Frame(self.lista.corpo, bg=FUNDO, pady=25)
@@ -150,7 +165,8 @@ class Interface:
         conteudo.bind("<Configure>", lambda evento: conteudo.configure(
             wraplength=max(100, evento.width - 4)))
         self._tornar_clicavel(cartao, lambda: self.usar_script(script.id)
-                             if self.insercao is not None else self.visualizar(script.id))
+                             if self.insercao is not None else self.visualizar(script.id),
+                             ("script", script.id))
 
     def _mostrar_menu(self, opcoes, ancora=None):
         anterior = getattr(self, "_menu", None)
@@ -183,20 +199,12 @@ class Interface:
             ("Excluir pasta", lambda: self.excluir_pasta(pasta.id), not pasta.sistema),
         ], ancora)
 
-    def _tornar_clicavel(self, cartao: Cartao, comando):
+    def _tornar_clicavel(self, cartao: Cartao, comando, chave):
         def acionar(_evento):
             comando()
             return "break"
 
-        def vincular(widget):
-            if isinstance(widget, ttk.Button):
-                return
-            widget.configure(cursor="hand2")
-            widget.bind("<Button-1>", acionar)
-            for filho in widget.winfo_children():
-                vincular(filho)
-
-        vincular(cartao)
+        self.arraste.vincular(cartao, chave, comando)
         cartao.configure(takefocus=True)
         cartao.bind("<Return>", acionar)
         cartao.bind("<space>", acionar)
@@ -213,7 +221,7 @@ class Interface:
                      negrito=True, wraplength=265)
         nome.pack(side="left", fill="x", expand=True)
         nome.bind("<Configure>", lambda evento: nome.configure(wraplength=max(100, evento.width - 4)))
-        self._tornar_clicavel(cartao, lambda: self.abrir_pasta(pasta.id))
+        self._tornar_clicavel(cartao, lambda: self.abrir_pasta(pasta.id), ("pasta", pasta.id))
 
     def editar_pasta(self, pasta_id: int | None = None):
         def abrir():
@@ -313,14 +321,14 @@ class Interface:
 
 def abrir_interface(pastas: CasosDeUsoPastas, scripts: CasosDeUsoScripts,
                     insercao: InserirScript | None = None,
-                    parada=None) -> None:
+                    parada=None, organizacao: CasosDeUsoOrganizacao | None = None) -> None:
     if parada is not None and parada.sinalizado():
         return
     janela = tk.Tk()
     janela.withdraw()
     if sys.platform == "win32":
         janela.attributes("-toolwindow", True)
-    Interface(janela, pastas, scripts, insercao)
+    Interface(janela, pastas, scripts, insercao, organizacao)
     mostrar_painel(janela)
     if parada is not None:
         # Apenas enquanto a interface está aberta. O receptor ocioso não

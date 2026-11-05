@@ -48,6 +48,12 @@ class RepositorioScripts(Protocol):
     def excluir(self, script_id: int) -> None: ...
 
 
+class RepositorioOrganizacao(Protocol):
+    def reordenar(self, pasta_id: int | None, itens: list[tuple[str, int]]) -> None:
+        """Persiste a lista completa do nível, atomicamente e sem mover itens."""
+        ...
+
+
 class InsercaoTexto(Protocol):
     """Integração vinculada ao destino capturado antes de abrir a interface.
 

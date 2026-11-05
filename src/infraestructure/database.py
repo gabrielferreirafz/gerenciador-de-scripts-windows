@@ -1,7 +1,6 @@
 """Conexões, esquema inicial e transações SQLite."""
 
 from contextlib import contextmanager
-import os
 from pathlib import Path
 import sqlite3
 from typing import Iterator
@@ -33,10 +32,9 @@ ESQUEMA = (
 
 
 def caminho_padrao() -> Path:
-    local_app_data = os.environ.get("LOCALAPPDATA")
-    if not local_app_data:
-        raise RuntimeError("A pasta LOCALAPPDATA do Windows não foi encontrada.")
-    return Path(local_app_data) / "GerenciadorScripts" / "gerenciador.sqlite3"
+    """Dados ao lado do projeto, dentro da pasta que agrupa a instalação."""
+    projeto = Path(__file__).resolve().parents[2]
+    return projeto.parent / "dados" / "gerenciador.sqlite3"
 
 
 def garantir_geral(conexao: sqlite3.Connection) -> sqlite3.Row:
@@ -47,6 +45,32 @@ def garantir_geral(conexao: sqlite3.Connection) -> sqlite3.Row:
            (SELECT 1 FROM pastas WHERE sistema = 1)"""
     )
     return conexao.execute("SELECT * FROM pastas WHERE sistema = 1").fetchone()
+
+
+def _migrar_ordem(conexao: sqlite3.Connection) -> None:
+    migrada = False
+    for tabela in ("pastas", "scripts"):
+        colunas = {linha["name"] for linha in conexao.execute(f"PRAGMA table_info({tabela})")}
+        if "ordem" not in colunas:
+            conexao.execute(f"ALTER TABLE {tabela} ADD COLUMN ordem INTEGER NOT NULL DEFAULT 0 CHECK(ordem >= 0)")
+            migrada = True
+    # Geral pode mudar de posição, mas seus dados e sua proteção são imutáveis.
+    conexao.execute("DROP TRIGGER IF EXISTS proteger_alteracao_geral")
+    conexao.execute("""CREATE TRIGGER proteger_alteracao_geral
+        BEFORE UPDATE ON pastas WHEN OLD.sistema = 1 AND (
+            NEW.id IS NOT OLD.id OR NEW.nome IS NOT OLD.nome OR
+            NEW.sistema IS NOT OLD.sistema OR NEW.pai_id IS NOT OLD.pai_id)
+        BEGIN SELECT RAISE(ABORT, 'A pasta Geral nao pode ser alterada.'); END""")
+    if migrada:
+        # Preserva a exibição anterior: pastas primeiro, depois os scripts.
+        niveis = [None] + [linha[0] for linha in conexao.execute("SELECT id FROM pastas")]
+        for pai_id in niveis:
+            pastas = [("pastas", linha[0]) for linha in conexao.execute(
+                "SELECT id FROM pastas WHERE pai_id IS ? ORDER BY sistema DESC, id", (pai_id,))]
+            scripts = [("scripts", linha[0]) for linha in conexao.execute(
+                "SELECT id FROM scripts WHERE pasta_id = ? ORDER BY id", (pai_id,))]
+            for ordem, (tabela, identificador) in enumerate(pastas + scripts):
+                conexao.execute(f"UPDATE {tabela} SET ordem = ? WHERE id = ?", (ordem, identificador))
 
 
 class BancoDados:
@@ -105,4 +129,5 @@ class BancoDados:
                         ) SELECT id FROM descendentes
                     );
                 END""")
+            _migrar_ordem(conexao)
             garantir_geral(conexao)

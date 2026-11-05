@@ -19,7 +19,17 @@ biblioteca padrão do Python, Win32 e UI Automation via `ctypes`.
 
 ## Configuração e uso no Windows 11
 
-Requer Python com Tkinter instalado. Na raiz do projeto, execute no PowerShell:
+Requer Python com Tkinter instalado. A instalação local está organizada assim:
+
+```text
+C:\gerenciador-de-scripts-UNDB\
+├── gerenciador-de-scripts\    # Projeto e repositório Git
+└── dados\
+    └── gerenciador.sqlite3   # Banco de dados
+```
+
+Na raiz do projeto (`C:\gerenciador-de-scripts-UNDB\gerenciador-de-scripts`),
+execute no PowerShell:
 
 ```powershell
 .\scripts\criar_atalho.ps1 -PythonwPath 'C:\caminho\Python\pythonw.exe' -IniciarComWindows -Iniciar
@@ -81,7 +91,7 @@ pasta atual selecionada como destino. Também é possível criar subpastas dentr
 de outras subpastas. Cada nível pode conter nenhum ou vários scripts e subpastas.
 
 Clique no cartão para entrar. A listagem mostra somente as subpastas e os scripts
-diretos daquele nível, com as subpastas primeiro. O caminho aparece acima da lista;
+diretos daquele nível. O caminho aparece acima da lista;
 **Voltar** sobe um nível, até retornar à raiz. Os mesmos menus de três pontos
 permitem abrir, renomear e excluir pastas ou subpastas.
 
@@ -99,6 +109,27 @@ O banco existente é atualizado automaticamente ao abrir a interface. A coluna
 opcional `pastas.pai_id` referencia outra pasta com `ON DELETE CASCADE`;
 as pastas anteriores permanecem na raiz, preservando IDs, nomes e scripts.
 As restrições do banco impedem pais inexistentes e ciclos na hierarquia.
+
+## Ordem de exibição
+
+Pressione um cartão com o botão esquerdo e arraste para reordenar pastas, subpastas
+ou scripts. Uma linha indica a posição de destino. Solte para salvar a ordem,
+que será preservada ao fechar e abrir o programa. Scripts e subpastas podem ser
+intercalados dentro da mesma pasta; Geral também pode mudar de posição na raiz.
+
+Um clique simples continua abrindo a pasta ou inserindo o script. A ação ocorre
+ao soltar o botão; mover alguns pixels involuntariamente ainda conta como clique.
+Arrastar não abre o cartão nem insere texto. Os três pontos continuam funcionando
+normalmente. Use **Esc** ou solte fora da lista para cancelar um arraste.
+
+Arraste perto das bordas superior/inferior para rolar uma lista longa. A ordenação
+vale apenas no nível atual e não transfere itens entre pastas. Novos itens entram
+no final. Renomear, editar ou excluir mantém a ordem dos itens restantes.
+
+O banco ganha uma coluna `ordem` nas tabelas `pastas` e `scripts`, com migração
+automática e transacional. A primeira migração preserva a exibição anterior;
+Geral continua protegida contra renomeação/exclusão. A gravação da ordem valida
+a lista completa do nível e não altera o conteúdo ou a associação dos scripts.
 
 ## Captura e inserção
 
@@ -140,11 +171,16 @@ cartões arredondados com prévia de tamanho fixo e os formulários de gerenciam
 O SQLite é criado automaticamente ao abrir a interface:
 
 ```text
-%LOCALAPPDATA%\GerenciadorScripts\gerenciador.sqlite3
+C:\gerenciador-de-scripts-UNDB\dados\gerenciador.sqlite3
 ```
 
-O caminho usa o usuário atual, sem nomes pessoais no código. Mover o projeto não
-move o banco. As conexões são fechadas após cada operação; escritas usam transações.
+O caminho é calculado a partir da localização do código: a pasta `dados` fica
+ao lado da pasta do projeto. Para mudar a instalação de lugar, mova a pasta
+externa inteira, incluindo projeto e dados, e atualize os atalhos pelo script.
+Não há caminho pessoal fixo no código. Na reorganização, os dados do banco antigo
+em `%LOCALAPPDATA%\GerenciadorScripts` foram preservados no novo banco; o arquivo
+antigo foi removido após a migração e não é mais usado pelo programa.
+As conexões são fechadas após cada operação; escritas usam transações.
 Chaves estrangeiras e `ON DELETE CASCADE` preservam os relacionamentos.
 Geral é criada de forma idempotente e não pode ser renomeada nem excluída.
 Excluir outra pasta exige confirmação e exclui seus scripts atomicamente.

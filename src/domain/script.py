@@ -11,6 +11,7 @@ class Script:
     titulo: str
     conteudo: str
     pasta_id: int
+    ordem: int = 0
 
     def __post_init__(self) -> None:
         if type(self.pasta_id) is not int:

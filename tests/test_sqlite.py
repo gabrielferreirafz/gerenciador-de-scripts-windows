@@ -33,10 +33,11 @@ class TestSQLite(unittest.TestCase):
         self.scripts = CasosDeUsoScripts(self.repo_scripts, self.repo_pastas)
 
     def test_local_padrao_separado_do_projeto(self):
-        with patch.dict("os.environ", {"LOCALAPPDATA": str(self.caminho.parent)}):
+        arquivo = self.caminho.parent / "gerenciador-de-scripts" / "src" / "infraestructure" / "database.py"
+        with patch("infraestructure.database.__file__", str(arquivo)):
             self.assertEqual(
                 caminho_padrao(),
-                self.caminho.parent / "GerenciadorScripts" / "gerenciador.sqlite3",
+                self.caminho.parent.resolve() / "dados" / "gerenciador.sqlite3",
             )
 
     def test_inicializacao_idempotente_preserva_dados(self):

@@ -11,6 +11,7 @@ class Pasta:
     nome: str
     sistema: bool
     pai_id: int | None = None
+    ordem: int = 0
 
     def __post_init__(self) -> None:
         if self.pai_id is not None:

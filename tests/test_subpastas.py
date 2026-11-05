@@ -185,6 +185,7 @@ class TestInterfaceSubpastas(unittest.TestCase):
         self.root.update()
         cartao = self.ui.lista.corpo.winfo_children()[0]
         cartao.event_generate("<Button-1>", x=2, y=2)
+        cartao.event_generate("<ButtonRelease-1>", x=2, y=2)
         self.assertEqual(self.ui.pasta_id, self.filha.id)
         self.assertEqual(self.ui.pasta_atual.cget("text"), "Atendimento / Financeiro")
         self.ui.voltar()
@@ -249,4 +250,5 @@ class TestInterfaceSubpastas(unittest.TestCase):
         self.root.update()
         with patch.object(self.ui, "usar_script") as usar:
             self.ui.lista.corpo.winfo_children()[0].event_generate("<Button-1>", x=2, y=2)
+            self.ui.lista.corpo.winfo_children()[0].event_generate("<ButtonRelease-1>", x=2, y=2)
         usar.assert_called_once_with(script.id)
